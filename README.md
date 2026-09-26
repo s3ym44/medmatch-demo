@@ -1,0 +1,114 @@
+# MedMatch
+
+Yalnızca **doğrulanmış hekim ve diş hekimleri** için tanışma uygulaması — çalışan demo.
+
+Ürünün asıl meselesi uygulama değil, **doğrulama güvenidir**: "buradaki herkes gerçekten hekim"
+vaadi kurulamazsa geriye sıradan bir dating app kalır. Bu yüzden doğrulama bir özellik değil,
+mimarinin merkezinde bir soyutlamadır.
+
+- **Backend:** .NET 8, Clean Architecture (Domain / Application / Infrastructure / Api)
+- **Frontend:** React 18 + TypeScript + Vite
+- **Gerçek zamanlı sohbet:** SignalR
+- **Çekirdek akış:** kayıt → profil → meslek doğrulama → keşif/swipe → eşleşme → canlı sohbet
+
+---
+
+## Hızlı başlangıç
+
+İki terminal gerekir. Ön koşul: **.NET 8 SDK** ve **Node 18+**.
+
+**1) Backend**
+```bash
+dotnet run --project src/MedMatch.Api --urls http://127.0.0.1:5099
+```
+
+**2) Frontend**
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Tarayıcıda `http://localhost:5173` → **"Demo hesabıyla tek tıkla gir"**.
+
+Demo hesabı: `demo@medmatch.dev` / `demo1234` (doğrulanmış). Diğer tüm seed doktorların parolası da `demo1234`.
+
+---
+
+## Demo senaryosu (60 saniye)
+
+1. **Tek tıkla gir** — Şeyma (Ankara, dahiliye, doğrulanmış) olarak açılır.
+2. **Keşfet** — yalnızca doğrulanmış, tercihlere (cinsiyet/yaş) uyan doktorlar gelir.
+3. **Kerem'i beğen** — Kerem seni önceden beğenmişti → **anında eşleşme** modalı.
+4. **Eşleşmeler → Elif** — hazır bir sohbet geçmişi var.
+5. İki sekmede aç, birinde yaz → diğerinde **canlı** düşer (SignalR).
+6. Yeni bir hesap aç: doğrulanmadan **Keşfet 403** verir; "e-Devlet belge" gönderince açılır.
+   (`documentRef` alanına `reject` yazarsan reddedilme yolunu görürsün.)
+
+---
+
+## Mimari
+
+```
+src/
+  MedMatch.Domain          # Saf iş kuralları — dış bağımlılık yok
+    Users, Profiles, Verification, Matching, Messaging
+  MedMatch.Application      # Use-case'ler, arayüzler (repository/servis), DTO'lar
+    Abstractions, Services, Contracts
+  MedMatch.Infrastructure   # Arayüzlerin implementasyonu
+    Persistence (in-memory), Security (JWT/hash), Verification (mock), Seed
+  MedMatch.Api              # Controller'lar, SignalR hub, auth, DI
+tests/
+  MedMatch.Verify           # Bağımlılıksız doğrulama harness'i (18 test)
+web/                        # React + TS + Vite istemci
+```
+
+Bağımlılık yönü tek taraflı: `Api → Infrastructure → Application → Domain`. Domain hiçbir şeye bağlı değil.
+
+### Doğrulama soyutlaması (ürünün kalbi)
+
+`IVerificationService` tek bir arayüzdür; demo'da `MockVerificationService` "belgeyi aldım, onayladım"
+der. Gerçek üründe bu arayüzün arkasına **e-Devlet barkodlu belge / kurumsal e-posta / oda sicili**
+gibi yöntemler strateji olarak takılır — üst katmanların hiçbiri değişmez. `VerificationRequest`
+entity'si bilinçli olarak sağlayıcıya özgü hiçbir alan tutmaz; yalnızca opak bir belge referansı ve durum.
+
+> **Neden tek doğrulama yolu yok?** TTB/TDB üyeliği zorunlu olmadığından sicil no'yu tek kapı yapmak
+> hedef kitlenin büyük kısmını dışarıda bırakır. Bu yüzden `VerificationMethod` çoklu kanıt için
+> tasarlandı. Ayrıca "e-Devlet ile giriş" doğrudan entegrasyonu freelancer'a/girişime açık değildir;
+> gerçekçi yol, kullanıcının e-Devlet'ten aldığı **barkodlu belgeyi** doğrulamaktır.
+
+### Keşif ve gizlilik
+
+`DiscoveryService` tüm dışlama kurallarını tek yerde toplar: kendini, daha önce oy verdiklerini,
+**doğrulanmamışları**, tercih dışı cinsiyet/yaşı eler. İleride "aynı kurumdaki meslektaşı / hastayı
+görme" gibi kurallar için `PrivacyFilter` kancası bırakılmıştır (demo'da pasif).
+
+---
+
+## Testler
+
+```bash
+dotnet run --project tests/MedMatch.Verify -c Release
+```
+
+Domain guard'ları (Match kanonik sıra, self-swipe, yaş aralığı, foto primary mantığı) ve uçtan uca
+akışı (doğrulama kapısı, karşılıklı like → eşleşme, mesaj yetkisi) kapsar — 18 test.
+
+---
+
+## Bu demonun bilinçli sadeleştirmeleri
+
+Bu sürüm, kurulum gerektirmeden çalışsın diye şu üretim bileşenlerini soyutlama arkasında ikame eder:
+
+| Konu | Demo | Üretim yolu |
+|------|------|-------------|
+| Persistence | Süreç içi (in-memory) repository | Aynı `I*Repository` arayüzleri arkasında **EF Core + PostgreSQL** |
+| Meslek doğrulama | `MockVerificationService` | `IVerificationService` arkasında gerçek e-Devlet/e-posta/sicil |
+| Auth | Elle HS256 JWT | `Microsoft.AspNetCore.Authentication.JwtBearer` + döndürülen anahtar |
+| Doğrulama testi | Console harness | xUnit + FluentAssertions |
+
+Repository ve servis arayüzleri sabit olduğu için bu geçişler üst katmanları etkilemez.
+
+> **Not:** Bu demo, dış NuGet paketlerine erişimi olmayan bir ortamda üretildi; bu yüzden yalnızca
+> .NET 8 paylaşımlı framework'ü (EF Core/MediatR/JwtBearer paketleri olmadan) kullanır. Senin
+> makinende NuGet açık olduğu için bu bileşenleri yukarıdaki tabloya göre kolayca ekleyebilirsin.
