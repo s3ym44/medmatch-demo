@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MedMatch.Domain\MedMatch.Domain.csproj" />
+    <ProjectReference Include="..\..\src\MedMatch.Application\MedMatch.Application.csproj" />
+    <ProjectReference Include="..\..\src\MedMatch.Infrastructure\MedMatch.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
