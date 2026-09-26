@@ -13,3 +13,8 @@ web/.vite/
 .idea/
 .DS_Store
 *.log
+
+# TS build artifacts
+*.tsbuildinfo
+web/vite.config.d.ts
+web/vite.config.js
