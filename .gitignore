@@ -1,0 +1,15 @@
+# .NET
+bin/
+obj/
+*.user
+
+# Node
+node_modules/
+web/dist/
+web/.vite/
+
+# IDE / OS
+.vs/
+.idea/
+.DS_Store
+*.log
