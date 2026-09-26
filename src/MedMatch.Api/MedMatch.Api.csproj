@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\MedMatch.Application\MedMatch.Application.csproj" />
+    <ProjectReference Include="..\MedMatch.Infrastructure\MedMatch.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
