@@ -3,7 +3,6 @@ using MedMatch.Api.Auth;
 using MedMatch.Api.Common;
 using MedMatch.Api.Hubs;
 using MedMatch.Infrastructure;
-using MedMatch.Infrastructure.Seed;
 using Microsoft.AspNetCore.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -36,11 +35,8 @@ builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
 
 var app = builder.Build();
 
-// demo verisini yükle
-using (var scope = app.Services.CreateScope())
-{
-    scope.ServiceProvider.GetRequiredService<DemoSeeder>().Seed();
-}
+// veritabanını hazırla (Postgres: migrate) ve demo verisini yükle
+await app.Services.InitializeDatabaseAsync(builder.Configuration);
 
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors(CorsPolicy);
