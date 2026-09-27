@@ -112,6 +112,5 @@ Bu sürüm şu üretim bileşenlerini soyutlama arkasında ikame eder (persisten
 
 Repository ve servis arayüzleri sabit olduğu için bu geçişler üst katmanları etkilemez.
 
-> **Not:** Bu demo, dış NuGet paketlerine erişimi olmayan bir ortamda üretildi; bu yüzden yalnızca
-> .NET 8 paylaşımlı framework'ü (EF Core/MediatR/JwtBearer paketleri olmadan) kullanır. Senin
-> makinende NuGet açık olduğu için bu bileşenleri yukarıdaki tabloya göre kolayca ekleyebilirsin.
+> **Not:** İlk demo dış NuGet paketleri olmadan üretilmişti. Bu bileşenlerin üretim karşılıklarına
+> adım adım geçiş [docs/MIGRATION.md](docs/MIGRATION.md) içinde; persistence geçişi tamamlandı.
