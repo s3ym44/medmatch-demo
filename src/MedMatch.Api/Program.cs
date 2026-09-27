@@ -1,9 +1,9 @@
 using System.Text.Json.Serialization;
-using MedMatch.Api.Auth;
 using MedMatch.Api.Common;
 using MedMatch.Api.Hubs;
 using MedMatch.Infrastructure;
-using Microsoft.AspNetCore.Authentication;
+using MedMatch.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,10 +14,27 @@ builder.Services
 builder.Services.AddSignalR();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Bearer token doğrulaması (JwtBearer paketi yerine özel handler)
+// Bearer token doğrulaması (JwtBearer). "sub" claim'i NameIdentifier'a eşlenir (MapInboundClaims):
+// UserContext ve SignalR'ın kullanıcı yönlendirmesi (Clients.User) bunu kullanır.
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+var tokenValidation = jwt.ValidationParameters(); // lambda dışında: secret eksik/kısaysa açılışta düşer
 builder.Services
-    .AddAuthentication(TokenAuthenticationHandler.SchemeName)
-    .AddScheme<AuthenticationSchemeOptions, TokenAuthenticationHandler>(TokenAuthenticationHandler.SchemeName, null);
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        o.TokenValidationParameters = tokenValidation;
+        // SignalR websocket handshake'i header gönderemez: token'ı ?access_token= ile al
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var token = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && ctx.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    ctx.Token = token;
+                return Task.CompletedTask;
+            }
+        };
+    });
 builder.Services.AddAuthorization();
 
 const string CorsPolicy = "spa";

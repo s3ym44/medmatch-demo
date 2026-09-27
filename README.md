@@ -107,7 +107,7 @@ Bu sürüm şu üretim bileşenlerini soyutlama arkasında ikame eder (persisten
 | Konu | Demo | Üretim yolu |
 |------|------|-------------|
 | Meslek doğrulama | `MockVerificationService` | `IVerificationService` arkasında gerçek e-Devlet/e-posta/sicil |
-| Auth | Elle HS256 JWT | `Microsoft.AspNetCore.Authentication.JwtBearer` + döndürülen anahtar |
+| Auth | JwtBearer, tek HS256 anahtar (`Jwt__Secret`; Development'ta `appsettings.Development.json`) | Döndürülen anahtar / secret store |
 | Doğrulama testi | Console harness | xUnit + FluentAssertions |
 
 Repository ve servis arayüzleri sabit olduğu için bu geçişler üst katmanları etkilemez.

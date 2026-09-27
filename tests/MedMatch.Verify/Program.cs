@@ -54,7 +54,7 @@ var matches = new MatchRepository(store);
 var messages = new MessageRepository(store);
 var verifications = new VerificationRepository(store);
 var hasher = new Pbkdf2PasswordHasher();
-var tokens = new JwtTokenService(new JwtOptions(), clock);
+var tokens = new JwtTokenService(new JwtOptions { Secret = "medmatch-verify-test-secret-at-least-32-bytes" }, clock);
 var provider = new MockVerificationService();
 
 var auth = new AuthService(users, profiles, hasher, tokens, clock);
