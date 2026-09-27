@@ -39,7 +39,6 @@ public static class DependencyInjection
         if (UseInMemoryDatabase(configuration))
         {
             services.AddSingleton<InMemoryStore>(); // süreç içi tek örnek
-            services.AddSingleton<DemoSeeder>();    // şimdilik InMemoryStore'a bağlı (MIGRATION.md Adım 5)
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IProfileRepository, ProfileRepository>();
             services.AddScoped<IVerificationRepository, VerificationRepository>();
@@ -60,6 +59,9 @@ public static class DependencyInjection
             services.AddScoped<IMessageRepository, EfMessageRepository>();
         }
 
+        // Demo verisi (repository arayüzleri üzerinden; iki modda da çalışır)
+        services.AddScoped<DemoSeeder>();
+
         // Application servisleri
         services.AddScoped<AuthService>();
         services.AddScoped<ProfileService>();
@@ -79,13 +81,9 @@ public static class DependencyInjection
         using var scope = services.CreateScope();
         var sp = scope.ServiceProvider;
 
-        if (UseInMemoryDatabase(configuration))
-        {
-            sp.GetRequiredService<DemoSeeder>().Seed();
-            return;
-        }
+        if (!UseInMemoryDatabase(configuration))
+            await sp.GetRequiredService<AppDbContext>().Database.MigrateAsync();
 
-        await sp.GetRequiredService<AppDbContext>().Database.MigrateAsync();
-        // Seeder henüz InMemoryStore'a bağlı; depo-bağımsız hale gelince (MIGRATION.md Adım 5) burada da çalışacak
+        await sp.GetRequiredService<DemoSeeder>().SeedAsync();
     }
 }

@@ -4,31 +4,48 @@ using MedMatch.Domain.Matching;
 using MedMatch.Domain.Messaging;
 using MedMatch.Domain.Profiles;
 using MedMatch.Domain.Users;
-using MedMatch.Infrastructure.Persistence;
 
 namespace MedMatch.Infrastructure.Seed;
 
-/// <summary>Demo verisi: giriş hesabı, doğrulanmış doktorlar, hazır bir eşleşme ve sohbet.</summary>
+/// <summary>
+/// Demo verisi: giriş hesabı, doğrulanmış doktorlar, hazır bir eşleşme ve sohbet.
+/// Yalnızca repository arayüzlerini kullanır; InMemory ve Postgres modunda aynı şekilde çalışır.
+/// </summary>
 public sealed class DemoSeeder
 {
     public const string DemoEmail = "demo@medmatch.dev";
     public const string DemoPassword = "demo1234";
 
-    private readonly InMemoryStore _store;
+    private readonly IUserRepository _users;
+    private readonly IProfileRepository _profiles;
+    private readonly ISwipeRepository _swipes;
+    private readonly IMatchRepository _matches;
+    private readonly IMessageRepository _messages;
     private readonly IPasswordHasher _hasher;
     private readonly IClock _clock;
 
-    public DemoSeeder(InMemoryStore store, IPasswordHasher hasher, IClock clock)
+    // Önce hepsi bellekte kurulur, sonra sırayla yazılır (bkz. SeedAsync sonu)
+    private readonly List<User> _pendingUsers = new();
+    private readonly List<DoctorProfile> _pendingProfiles = new();
+    private readonly List<Swipe> _pendingSwipes = new();
+    private readonly List<Match> _pendingMatches = new();
+    private readonly List<Message> _pendingMessages = new();
+
+    public DemoSeeder(
+        IUserRepository users, IProfileRepository profiles, ISwipeRepository swipes,
+        IMatchRepository matches, IMessageRepository messages, IPasswordHasher hasher, IClock clock)
     {
-        _store = store; _hasher = hasher; _clock = clock;
+        _users = users; _profiles = profiles; _swipes = swipes;
+        _matches = matches; _messages = messages; _hasher = hasher; _clock = clock;
     }
 
     private static string Avatar(string seed) =>
         $"https://api.dicebear.com/7.x/avataaars/svg?seed={Uri.EscapeDataString(seed)}&backgroundColor=b6e3f4,c0aede,ffd5dc";
 
-    public void Seed()
+    public async Task SeedAsync(CancellationToken ct = default)
     {
-        if (!_store.Users.IsEmpty) return; // idempotent
+        // idempotent: demo hesabı en son yazılır, varsa seed tamamlanmıştır
+        if (await _users.GetByEmailAsync(DemoEmail, ct) is not null) return;
 
         var now = _clock.Now;
 
@@ -71,10 +88,20 @@ public sealed class DemoSeeder
         AddSwipe(meUser.Id, elif.user.Id, SwipeDecision.Like, now.AddDays(-2));
         AddSwipe(elif.user.Id, meUser.Id, SwipeDecision.Like, now.AddDays(-2).AddMinutes(10));
         var match = Match.Create(meUser.Id, elif.user.Id, now.AddDays(-2).AddMinutes(10));
-        _store.Matches[match.Id] = match;
+        _pendingMatches.Add(match);
         AddMessage(match.Id, elif.user.Id, "Selam! Profilinde dağ yürüyüşü yazıyor, en son nereye gittin?", now.AddDays(-1).AddHours(-2));
         AddMessage(match.Id, meUser.Id, "Merhaba! Geçen hafta Ilgaz'daydım, muhteşemdi. Sen seramikle ne yapıyorsun?", now.AddDays(-1).AddHours(-1));
         AddMessage(match.Id, elif.user.Id, "Kupa ve saksı ağırlıklı :) Bir ara atölyeye davet ederim.", now.AddDays(-1));
+
+        // Yazma sırası: önce diğer kullanıcılar, demo hesabı en son. Seed yarıda kesilirse demo hesabı
+        // olmaz ve sonraki açılış ilk kullanıcıda unique e-posta ihlaliyle düşer: sessizce eksik kalmaz,
+        // yetim profil/swipe da çoğaltmaz. (Postgres'te düzeltmek için tabloları boşalt.)
+        foreach (var u in _pendingUsers.Where(u => u.Id != meUser.Id)) await _users.AddAsync(u, ct);
+        foreach (var p in _pendingProfiles) await _profiles.AddAsync(p, ct);
+        foreach (var s in _pendingSwipes) await _swipes.AddAsync(s, ct);
+        foreach (var m in _pendingMatches) await _matches.AddAsync(m, ct);
+        foreach (var m in _pendingMessages) await _messages.AddAsync(m, ct);
+        await _users.AddAsync(meUser, ct);
     }
 
     private (User user, DoctorProfile profile) MakeDoctor(
@@ -82,26 +109,20 @@ public sealed class DemoSeeder
         DateOnly birth, string city, string bio, Gender interestedIn, int ageMin, int ageMax, bool verified)
     {
         var user = User.Create(email, _hasher.Hash(password), _clock.Now);
-        _store.Users[user.Id] = user;
+        _pendingUsers.Add(user);
 
         var profile = DoctorProfile.Create(user.Id, name, prof, gender, birth, city, interestedIn, new AgeRange(ageMin, ageMax));
         profile.UpdateBio(bio);
         profile.AddPhoto(Avatar(name), true);
         if (verified) profile.MarkVerified();
-        _store.Profiles[profile.Id] = profile;
+        _pendingProfiles.Add(profile);
 
         return (user, profile);
     }
 
     private void AddSwipe(Guid swiper, Guid target, SwipeDecision decision, DateTimeOffset at)
-    {
-        var s = Swipe.Create(swiper, target, decision, at);
-        _store.Swipes[s.Id] = s;
-    }
+        => _pendingSwipes.Add(Swipe.Create(swiper, target, decision, at));
 
     private void AddMessage(Guid matchId, Guid sender, string content, DateTimeOffset at)
-    {
-        var m = Message.Create(matchId, sender, content, at);
-        _store.Messages[m.Id] = m;
-    }
+        => _pendingMessages.Add(Message.Create(matchId, sender, content, at));
 }
