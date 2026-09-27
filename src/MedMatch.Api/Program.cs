@@ -11,7 +11,17 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AddSignalR();
+// SignalR. Birden fazla API örneğinde mesajlar diğer sunuculara bağlı istemcilere de ulaşsın diye
+// Redis backplane; ConnectionStrings:Redis boşsa tek sunuculu (süreç içi) çalışır.
+var signalR = builder.Services.AddSignalR();
+var redis = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redis))
+    signalR.AddStackExchangeRedis(redis, o =>
+    {
+        o.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("medmatch");
+        o.Configuration.AbortOnConnectFail = false; // Redis geri gelince yeniden başlatmadan toparlan
+    });
+
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Bearer token doğrulaması (JwtBearer). "sub" claim'i NameIdentifier'a eşlenir (MapInboundClaims):

@@ -16,10 +16,11 @@ public sealed class MatchesController : ControllerBase
     private readonly MatchingService _matching;
     private readonly ChatService _chat;
     private readonly IHubContext<ChatHub> _hub;
+    private readonly ILogger<MatchesController> _log;
 
-    public MatchesController(MatchingService matching, ChatService chat, IHubContext<ChatHub> hub)
+    public MatchesController(MatchingService matching, ChatService chat, IHubContext<ChatHub> hub, ILogger<MatchesController> log)
     {
-        _matching = matching; _chat = chat; _hub = hub;
+        _matching = matching; _chat = chat; _hub = hub; _log = log;
     }
 
     [HttpPost("swipe")]
@@ -29,8 +30,8 @@ public sealed class MatchesController : ControllerBase
         if (result.Matched && result.MatchId is { } matchId)
         {
             // her iki tarafa da "yeni eşleşme" bildir
-            await _hub.Clients.Users(User.GetUserId().ToString(), req.TargetUserId.ToString())
-                .SendAsync("Matched", new { matchId }, ct);
+            await BroadcastAsync(() => _hub.Clients.Users(User.GetUserId().ToString(), req.TargetUserId.ToString())
+                .SendAsync("Matched", new { matchId }, ct));
         }
         return Ok(result);
     }
@@ -48,7 +49,20 @@ public sealed class MatchesController : ControllerBase
     {
         var msg = await _chat.SendAsync(User.GetUserId(), matchId, req, ct);
         // sohbet grubuna gerçek zamanlı yayınla
-        await _hub.Clients.Group(ChatHub.MatchGroup(matchId)).SendAsync("ReceiveMessage", msg, ct);
+        await BroadcastAsync(() => _hub.Clients.Group(ChatHub.MatchGroup(matchId)).SendAsync("ReceiveMessage", msg, ct));
         return Ok(msg);
+    }
+
+    /// <summary>
+    /// Canlı bildirim best-effort: kayıt zaten yapıldı, backplane (Redis) kesintisi isteği düşürmesin
+    /// (yoksa istemci tekrar dener ve mesaj çift yazılır). İstemciler veriyi REST'ten de çeker.
+    /// </summary>
+    private async Task BroadcastAsync(Func<Task> send)
+    {
+        try { await send(); }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _log.LogWarning(ex, "SignalR yayını başarısız; kayıt tamam, canlı bildirim atlandı.");
+        }
     }
 }

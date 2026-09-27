@@ -24,7 +24,10 @@ dotnet run --project src/MedMatch.Api --urls http://127.0.0.1:5099
 ```
 
 API açılışta migration'ları uygular ve demo verisini yükler. Postgres host'ta **5433** portunda.
-Docker olmadan denemek için in-memory mod: `Database__Provider=InMemory dotnet run --project src/MedMatch.Api --urls http://127.0.0.1:5099`
+Docker olmadan denemek için in-memory mod (Redis backplane kapalı):
+`Database__Provider=InMemory ConnectionStrings__Redis= dotnet run --project src/MedMatch.Api --urls http://127.0.0.1:5099`
+
+Birden fazla API örneği SignalR mesajlarını Redis backplane üzerinden paylaşır (`ConnectionStrings:Redis`; boşsa tek sunuculu).
 
 **2) Frontend**
 ```bash
