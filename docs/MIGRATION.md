@@ -379,15 +379,18 @@ Postgres ayaktayken:
 ```bash
 dotnet ef migrations add InitialCreate \
   --project src/MedMatch.Infrastructure \
-  --startup-project src/MedMatch.Api
+  --startup-project src/MedMatch.Infrastructure
 ```
+
+> Startup projesi Infrastructure: EF Design paketi `PrivateAssets=all` olduğu için Api'ye geçmez;
+> EF CLI bağlantıyı `DesignTimeDbContextFactory`'den alır.
 
 Migration'ı gözden geçir: tüm unique index'ler (Email, UserId, Swipe(SwiperId,TargetId),
 Match(UserAId,UserBId)), `CK_Match_Canonical` check constraint ve enum kolonlarının `integer`
 olduğunu doğrula. Sonra:
 
 ```bash
-dotnet ef database update --project src/MedMatch.Infrastructure --startup-project src/MedMatch.Api
+dotnet ef database update --project src/MedMatch.Infrastructure --startup-project src/MedMatch.Infrastructure
 ```
 
 `dotnet run` → API açılışta migrate + seed eder. Demo'daki tüm curl akışı artık Postgres'e karşı çalışır.
