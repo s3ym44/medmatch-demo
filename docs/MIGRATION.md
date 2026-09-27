@@ -66,7 +66,7 @@ services:
       POSTGRES_DB: medmatch
       POSTGRES_USER: medmatch
       POSTGRES_PASSWORD: medmatch
-    ports: ["5432:5432"]
+    ports: ["5433:5432"] # 5432 host'ta yerel Postgres ile çakışıyor
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U medmatch"]
@@ -91,7 +91,7 @@ volumes:
 {
   "Database": { "Provider": "Postgres" },
   "ConnectionStrings": {
-    "Postgres": "Host=localhost;Port=5432;Database=medmatch;Username=medmatch;Password=medmatch"
+    "Postgres": "Host=localhost;Port=5433;Database=medmatch;Username=medmatch;Password=medmatch"
   }
 }
 ```
@@ -250,7 +250,7 @@ public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<App
     public AppDbContext CreateDbContext(string[] args)
     {
         var conn = Environment.GetEnvironmentVariable("ConnectionStrings__Postgres")
-            ?? "Host=localhost;Port=5432;Database=medmatch;Username=medmatch;Password=medmatch";
+            ?? "Host=localhost;Port=5433;Database=medmatch;Username=medmatch;Password=medmatch";
         var options = new DbContextOptionsBuilder<AppDbContext>().UseNpgsql(conn).Options;
         return new AppDbContext(options);
     }
