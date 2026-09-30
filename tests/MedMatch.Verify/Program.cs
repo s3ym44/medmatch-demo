@@ -146,6 +146,22 @@ Check.True("Validation: kısa parola reddedilir",
     await FailsWith(AppErrorType.Validation, () => sender.Send(new RegisterCommand(new RegisterRequest("d@x.dev", "123")))));
 Check.True("Validation: kendine oy reddedilir",
     await FailsWith(AppErrorType.Validation, () => sender.Send(new SwipeCommand(a.UserId, new SwipeRequest(a.UserId, SwipeDecision.Like)))));
+var okReq = new CreateProfileRequest("Cem", Profession.Physician, Gender.Male, new DateOnly(1990, 1, 1), "Ankara", null, Gender.Female, 25, 45,
+    WorkSchedule.Daytime, NightShiftLoad.None, MandatoryServiceStatus.Completed, RelocationOpenness.Open, CareerStage.Specialist);
+var cUser = c.UserId;
+Check.True("Validation: tanımsız enum reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new CreateProfileCommand(cUser, okReq with { CareerStage = (CareerStage)99 }))));
+Check.True("Validation: 4 prompt reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new CreateProfileCommand(cUser, okReq with { Prompts = new[]
+        { PromptKey.NightShiftSurvival, PromptKey.CantTellPatients, PromptKey.TusWinDay, PromptKey.FreeWeekend }
+        .Select(k => new PromptAnswerInput(k, "x")).ToList() }))));
+Check.True("Validation: yinelenen PromptKey reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new CreateProfileCommand(cUser, okReq with { Prompts =
+        [new(PromptKey.FreeWeekend, "a"), new(PromptKey.FreeWeekend, "b")] }))));
+Check.True("Validation: boş prompt cevabı reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new CreateProfileCommand(cUser, okReq with { Prompts = [new(PromptKey.FreeWeekend, " ")] }))));
+Check.True("Validation: 201 karakterlik cevap reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new CreateProfileCommand(cUser, okReq with { Prompts = [new(PromptKey.FreeWeekend, new string('a', 201))] }))));
 Check.True("Validation transaction'dan önce: geçersiz istek transaction açmaz", uow.Calls == 0);
 
 // Transaction: command'lar IUnitOfWork'ten geçer, query'ler geçmez
@@ -155,6 +171,12 @@ await sender.Send(new GetMyProfileQuery(a.UserId));
 Check.True("Transaction: query'ler transaction açmaz", uow.Calls == 0);
 await sender.Send(new SendMessageCommand(b.UserId, r2.MatchId!.Value, new SendMessageRequest("Selam Ada")));
 Check.True("Transaction: command tek transaction'da çalışır", uow.Calls == 1);
+
+// Prompt kataloğu
+var catalog = await sender.Send(new GetPromptCatalogQuery());
+Check.True("Katalog sorgusu tüm prompt'ları döndürür",
+    catalog.Count == Enum.GetValues<PromptKey>().Length && catalog.All(i => i.Text == PromptCatalog.TextOf(i.Key)));
+Check.True("Prompt'suz profil geçerli (opsiyonel)", (await sender.Send(new CreateProfileCommand(cUser, okReq))).Prompts.Count == 0);
 
 return Check.Summary();
 
