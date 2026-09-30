@@ -1,14 +1,22 @@
+using MedMatch.Application;
+using MedMatch.Application.Abstractions;
+using MedMatch.Application.Common;
 using MedMatch.Application.Contracts;
-using MedMatch.Application.Services;
+using MedMatch.Application.Features.Auth;
+using MedMatch.Application.Features.Chat;
+using MedMatch.Application.Features.Discovery;
+using MedMatch.Application.Features.Matching;
+using MedMatch.Application.Features.Profiles;
+using MedMatch.Application.Features.Verification;
+using MedMatch.Infrastructure;
 using MedMatch.Domain.Enums;
 using MedMatch.Domain.Matching;
 using MedMatch.Domain.Profiles;
 using MedMatch.Domain.Common;
-using MedMatch.Infrastructure.Persistence;
-using MedMatch.Infrastructure.Persistence.Repositories;
-using MedMatch.Infrastructure.Security;
-using MedMatch.Infrastructure.Verification;
 using MedMatch.Verify;
+using MediatR;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 Console.WriteLine("== Domain guard testleri ==");
 
@@ -43,61 +51,90 @@ Check.True("Yeni primary eklenince eski primary düşer",
     prof.Photos.Count(p => p.IsPrimary) == 1 && prof.Photos.First(p => p.Url == "b.svg").IsPrimary);
 
 Console.WriteLine();
-Console.WriteLine("== Uçtan uca akış (in-memory) ==");
+Console.WriteLine("== Uçtan uca akış (in-memory, MediatR pipeline) ==");
 
-var clock = new SystemClock();
-var store = new InMemoryStore();
-var users = new UserRepository(store);
-var profiles = new ProfileRepository(store);
-var swipes = new SwipeRepository(store);
-var matches = new MatchRepository(store);
-var messages = new MessageRepository(store);
-var verifications = new VerificationRepository(store);
-var hasher = new Pbkdf2PasswordHasher();
-var tokens = new JwtTokenService(new JwtOptions { Secret = "medmatch-verify-test-secret-at-least-32-bytes" }, clock);
-var provider = new MockVerificationService();
+// Uygulamanın gerçek DI kurulumu: AddApplication + AddInfrastructure (InMemory mod)
+var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Database:Provider"] = "InMemory",
+    ["Jwt:Secret"] = "medmatch-verify-test-secret-at-least-32-bytes"
+}).Build();
+var services = new ServiceCollection().AddApplication().AddInfrastructure(config);
+var uow = new RecordingUnitOfWork();
+services.AddSingleton<IUnitOfWork>(uow); // transaction davranışını gözlemlemek için
+await using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
+await using var scope = provider.CreateAsyncScope();
+var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
-var auth = new AuthService(users, profiles, hasher, tokens, clock);
-var profileSvc = new ProfileService(profiles, clock);
-var verifySvc = new VerificationAppService(verifications, profiles, provider, clock);
-var discovery = new DiscoveryService(profiles, swipes, clock);
-var matching = new MatchingService(swipes, matches, profiles, clock);
-var chat = new ChatService(matches, messages, profiles, clock);
+async Task<bool> FailsWith(AppErrorType type, Func<Task> action)
+{
+    try { await action(); return false; }
+    catch (AppException ex) { return ex.Type == type; }
+}
 
 // iki kullanıcı kaydol + profil + doğrula
-var a = await auth.RegisterAsync(new RegisterRequest("a@x.dev", "parola1"));
-var b = await auth.RegisterAsync(new RegisterRequest("b@x.dev", "parola1"));
-await profileSvc.CreateAsync(a.UserId, new CreateProfileRequest("Ada", Profession.Physician, Gender.Female, new DateOnly(1994,1,1), "Ankara", null, Gender.Male, 25, 45));
-await profileSvc.CreateAsync(b.UserId, new CreateProfileRequest("Bora", Profession.Dentist, Gender.Male, new DateOnly(1990,1,1), "Ankara", null, Gender.Female, 25, 45));
+var a = await sender.Send(new RegisterCommand(new RegisterRequest("a@x.dev", "parola1")));
+var b = await sender.Send(new RegisterCommand(new RegisterRequest("b@x.dev", "parola1")));
+await sender.Send(new CreateProfileCommand(a.UserId, new CreateProfileRequest("Ada", Profession.Physician, Gender.Female, new DateOnly(1994,1,1), "Ankara", null, Gender.Male, 25, 45)));
+await sender.Send(new CreateProfileCommand(b.UserId, new CreateProfileRequest("Bora", Profession.Dentist, Gender.Male, new DateOnly(1990,1,1), "Ankara", null, Gender.Female, 25, 45)));
 
 // doğrulama öncesi keşif engelli
-var blocked = false;
-try { await discovery.GetCandidatesAsync(a.UserId, 10); }
-catch (MedMatch.Application.Common.AppException) { blocked = true; }
-Check.True("Doğrulanmadan keşif engelli", blocked);
+Check.True("Doğrulanmadan keşif engelli",
+    await FailsWith(AppErrorType.Forbidden, () => sender.Send(new GetCandidatesQuery(a.UserId, 10))));
 
-await verifySvc.SubmitAsync(a.UserId, new SubmitVerificationRequest(VerificationMethod.EDevletDocument, "belge"));
-await verifySvc.SubmitAsync(b.UserId, new SubmitVerificationRequest(VerificationMethod.EDevletDocument, "belge"));
+await sender.Send(new SubmitVerificationCommand(a.UserId, new SubmitVerificationRequest(VerificationMethod.EDevletDocument, "belge")));
+await sender.Send(new SubmitVerificationCommand(b.UserId, new SubmitVerificationRequest(VerificationMethod.EDevletDocument, "belge")));
 
-var cands = await discovery.GetCandidatesAsync(a.UserId, 10);
+var cands = await sender.Send(new GetCandidatesQuery(a.UserId, 10));
 Check.True("Doğrulama sonrası Ada, Bora'yı görüyor", cands.Any(c => c.UserId == b.UserId));
 
 // tek taraflı like -> eşleşme yok
-var r1 = await matching.SwipeAsync(a.UserId, new SwipeRequest(b.UserId, SwipeDecision.Like));
+var r1 = await sender.Send(new SwipeCommand(a.UserId, new SwipeRequest(b.UserId, SwipeDecision.Like)));
 Check.True("Tek taraflı like eşleşme üretmez", !r1.Matched);
 // karşılıklı like -> eşleşme
-var r2 = await matching.SwipeAsync(b.UserId, new SwipeRequest(a.UserId, SwipeDecision.Like));
+var r2 = await sender.Send(new SwipeCommand(b.UserId, new SwipeRequest(a.UserId, SwipeDecision.Like)));
 Check.True("Karşılıklı like eşleşme üretir", r2.Matched && r2.MatchId is not null);
 
 // mesajlaşma + yetki
-await chat.SendAsync(a.UserId, r2.MatchId!.Value, new SendMessageRequest("Selam Bora"));
-var msgs = await chat.GetMessagesAsync(b.UserId, r2.MatchId!.Value);
+await sender.Send(new SendMessageCommand(a.UserId, r2.MatchId!.Value, new SendMessageRequest("Selam Bora")));
+var msgs = await sender.Send(new GetMessagesQuery(b.UserId, r2.MatchId!.Value));
 Check.True("Mesaj karşı tarafça görülüyor", msgs.Any(x => x.Content == "Selam Bora"));
 
-var c = await auth.RegisterAsync(new RegisterRequest("c@x.dev", "parola1"));
-var forbidden = false;
-try { await chat.GetMessagesAsync(c.UserId, r2.MatchId!.Value); }
-catch (MedMatch.Application.Common.AppException) { forbidden = true; }
-Check.True("Üçüncü kişi sohbete erişemez", forbidden);
+var c = await sender.Send(new RegisterCommand(new RegisterRequest("c@x.dev", "parola1")));
+Check.True("Üçüncü kişi sohbete erişemez",
+    await FailsWith(AppErrorType.Forbidden, () => sender.Send(new GetMessagesQuery(c.UserId, r2.MatchId!.Value))));
+
+Console.WriteLine();
+Console.WriteLine("== Pipeline davranışları ==");
+
+// Validation: elle yazılmış kontrollerle aynı mesaj ve 400 (Validation)
+uow.Reset();
+Check.True("Validation: geçersiz e-posta reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new RegisterCommand(new RegisterRequest("gecersiz", "parola1")))));
+Check.True("Validation: kısa parola reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new RegisterCommand(new RegisterRequest("d@x.dev", "123")))));
+Check.True("Validation: kendine oy reddedilir",
+    await FailsWith(AppErrorType.Validation, () => sender.Send(new SwipeCommand(a.UserId, new SwipeRequest(a.UserId, SwipeDecision.Like)))));
+Check.True("Validation transaction'dan önce: geçersiz istek transaction açmaz", uow.Calls == 0);
+
+// Transaction: command'lar IUnitOfWork'ten geçer, query'ler geçmez
+uow.Reset();
+await sender.Send(new GetMatchesQuery(a.UserId));
+await sender.Send(new GetMyProfileQuery(a.UserId));
+Check.True("Transaction: query'ler transaction açmaz", uow.Calls == 0);
+await sender.Send(new SendMessageCommand(b.UserId, r2.MatchId!.Value, new SendMessageRequest("Selam Ada")));
+Check.True("Transaction: command tek transaction'da çalışır", uow.Calls == 1);
 
 return Check.Summary();
+
+/// <summary>Transaction davranışını gözlemlemek için: çağrıları sayar, işi doğrudan çalıştırır.</summary>
+sealed class RecordingUnitOfWork : IUnitOfWork
+{
+    public int Calls { get; private set; }
+    public void Reset() => Calls = 0;
+    public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> work, CancellationToken ct = default)
+    {
+        Calls++;
+        return work();
+    }
+}

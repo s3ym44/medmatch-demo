@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using MedMatch.Api.Common;
 using MedMatch.Api.Hubs;
+using MedMatch.Application;
 using MedMatch.Infrastructure;
 using MedMatch.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -22,6 +23,7 @@ if (!string.IsNullOrWhiteSpace(redis))
         o.Configuration.AbortOnConnectFail = false; // Redis geri gelince yeniden başlatmadan toparlan
     });
 
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Bearer token doğrulaması (JwtBearer). "sub" claim'i NameIdentifier'a eşlenir (MapInboundClaims):

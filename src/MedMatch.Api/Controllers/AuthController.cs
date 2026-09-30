@@ -1,6 +1,7 @@
 using MedMatch.Application.Contracts;
-using MedMatch.Application.Services;
+using MedMatch.Application.Features.Auth;
 using MedMatch.Infrastructure.Seed;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,18 +11,18 @@ namespace MedMatch.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController : ControllerBase
 {
-    private readonly AuthService _auth;
-    public AuthController(AuthService auth) => _auth = auth;
+    private readonly ISender _sender;
+    public AuthController(ISender sender) => _sender = sender;
 
     [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest req, CancellationToken ct)
-        => Ok(await _auth.RegisterAsync(req, ct));
+        => Ok(await _sender.Send(new RegisterCommand(req), ct));
 
     [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest req, CancellationToken ct)
-        => Ok(await _auth.LoginAsync(req, ct));
+        => Ok(await _sender.Send(new LoginCommand(req), ct));
 
     /// <summary>Demo hesabının hazır kimlik bilgileri (frontend "tek tıkla giriş" için).</summary>
     [AllowAnonymous]
