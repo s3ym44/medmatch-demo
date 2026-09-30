@@ -10,14 +10,14 @@ public sealed class EfProfileRepository : IProfileRepository
     public EfProfileRepository(AppDbContext db) => _db = db;
 
     public Task<DoctorProfile?> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
-        => _db.Profiles.Include(p => p.Photos).FirstOrDefaultAsync(p => p.UserId == userId, ct);
+        => _db.Profiles.Include(p => p.Photos).Include(p => p.Prompts).FirstOrDefaultAsync(p => p.UserId == userId, ct);
 
     public Task<DoctorProfile?> GetByIdAsync(Guid profileId, CancellationToken ct = default)
-        => _db.Profiles.Include(p => p.Photos).FirstOrDefaultAsync(p => p.Id == profileId, ct);
+        => _db.Profiles.Include(p => p.Photos).Include(p => p.Prompts).FirstOrDefaultAsync(p => p.Id == profileId, ct);
 
     // DiscoveryService filtreyi bellekte yapıyor; ölçek büyüyünce Where'ler buraya taşınmalı
     public async Task<IReadOnlyList<DoctorProfile>> GetAllAsync(CancellationToken ct = default)
-        => await _db.Profiles.Include(p => p.Photos).ToListAsync(ct);
+        => await _db.Profiles.Include(p => p.Photos).Include(p => p.Prompts).ToListAsync(ct);
 
     public async Task AddAsync(DoctorProfile profile, CancellationToken ct = default)
     {

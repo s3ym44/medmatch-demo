@@ -14,6 +14,7 @@ public sealed class AppDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<DoctorProfile> Profiles => Set<DoctorProfile>();
     public DbSet<ProfilePhoto> Photos => Set<ProfilePhoto>();
+    public DbSet<ProfilePrompt> Prompts => Set<ProfilePrompt>();
     public DbSet<VerificationRequest> Verifications => Set<VerificationRequest>();
     public DbSet<Swipe> Swipes => Set<Swipe>();
     public DbSet<Match> Matches => Set<Match>();

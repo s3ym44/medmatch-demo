@@ -14,6 +14,11 @@ public sealed class DoctorProfileConfiguration : IEntityTypeConfiguration<Doctor
         b.Property(x => x.DisplayName).IsRequired().HasMaxLength(120);
         b.Property(x => x.City).IsRequired().HasMaxLength(80);
         b.Property(x => x.VerificationStatus).HasConversion<int>();
+        b.Property(x => x.WorkSchedule).HasConversion<int>();
+        b.Property(x => x.NightShiftLoad).HasConversion<int>();
+        b.Property(x => x.MandatoryService).HasConversion<int>();
+        b.Property(x => x.Relocation).HasConversion<int>();
+        b.Property(x => x.CareerStage).HasConversion<int>();
 
         // AgeRange value object -> AgeMin / AgeMax kolonları (ctor binding: min/max)
         b.OwnsOne(x => x.AgeRange, a =>
@@ -26,5 +31,9 @@ public sealed class DoctorProfileConfiguration : IEntityTypeConfiguration<Doctor
         // Photos: salt-okunur koleksiyon, _photos backing field
         b.HasMany(x => x.Photos).WithOne().HasForeignKey(p => p.ProfileId).OnDelete(DeleteBehavior.Cascade);
         b.Navigation(x => x.Photos).UsePropertyAccessMode(PropertyAccessMode.Field);
+
+        // Prompts: Photos ile aynı desen (_prompts backing field)
+        b.HasMany(x => x.Prompts).WithOne().HasForeignKey(p => p.ProfileId).OnDelete(DeleteBehavior.Cascade);
+        b.Navigation(x => x.Prompts).UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
