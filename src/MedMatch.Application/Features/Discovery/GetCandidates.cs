@@ -44,9 +44,7 @@ internal sealed class GetCandidatesHandler : IRequestHandler<GetCandidatesQuery,
             .Where(p => PrivacyFilter(me, p))                                 // gizlilik kancası (demo: her zaman true)
             .OrderBy(_ => Guid.NewGuid())
             .Take(q.Take <= 0 ? 20 : q.Take)
-            .Select(p => new CandidateDto(
-                p.Id, p.UserId, p.DisplayName, p.Profession, p.Gender, p.AgeOn(today), p.City, p.Bio,
-                p.Photos.OrderBy(x => x.Order).Select(x => x.ToDto()).ToList()))
+            .Select(p => p.ToCandidateDto(today))
             .ToList();
     }
 

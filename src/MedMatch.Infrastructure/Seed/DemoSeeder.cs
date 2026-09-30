@@ -53,33 +53,65 @@ public sealed class DemoSeeder
         var (meUser, meProfile) = MakeDoctor(
             DemoEmail, DemoPassword, "Şeyma", Profession.Physician, Gender.Female,
             new DateOnly(1996, 4, 12), "Ankara", "Dahiliye uzmanı. Kahve, dağ yürüyüşü, iyi kitap.",
-            interestedIn: Gender.Male, ageMin: 28, ageMax: 40, verified: true);
+            interestedIn: Gender.Male, ageMin: 28, ageMax: 40, verified: true,
+            WorkSchedule.Shifts, NightShiftLoad.Moderate, MandatoryServiceStatus.Completed,
+            RelocationOpenness.Depends, CareerStage.Specialist,
+            (PromptKey.NightShiftSurvival, "Sabaha karşı ikinci kahve, üçüncüsünde artık pes ediyorum."),
+            (PromptKey.FreeWeekend, "Ilgaz'a kaçar, telefonu arabada bırakırım."));
 
         // --- Aday doktorlar (hepsi doğrulanmış) ---
         var kerem = MakeDoctor("kerem@medmatch.dev", "demo1234", "Kerem", Profession.Physician, Gender.Male,
             new DateOnly(1992, 8, 3), "Ankara", "Kardiyoloji. Bisiklet ve vinil plak koleksiyonu.",
-            Gender.Female, 26, 38, true);
+            Gender.Female, 26, 38, true,
+            WorkSchedule.Shifts, NightShiftLoad.Heavy, MandatoryServiceStatus.Completed,
+            RelocationOpenness.Closed, CareerStage.Resident,
+            (PromptKey.HowToLoseMe, "Vinil plağa 'eski moda' demek yeterli."),
+            (PromptKey.TusWinDay, "Sonuçları görünce sessizce koridorda oturdum, sonra annemi aradım."));
         var emre = MakeDoctor("emre@medmatch.dev", "demo1234", "Emre", Profession.Dentist, Gender.Male,
             new DateOnly(1990, 1, 22), "Ankara", "Diş hekimi, kendi kliniğim var. Yüzme ve espresso.",
-            Gender.Female, 27, 39, true);
+            Gender.Female, 27, 39, true,
+            WorkSchedule.Daytime, NightShiftLoad.None, MandatoryServiceStatus.NotApplicable,
+            RelocationOpenness.Closed, CareerStage.Specialist,
+            (PromptKey.OffDutyDifferent, "Klinikte titiz, yüzme havuzunda tamamen başıboşum."));
         var elif = MakeDoctor("elif@medmatch.dev", "demo1234", "Elif", Profession.Physician, Gender.Female,
             new DateOnly(1994, 11, 9), "İstanbul", "Çocuk doktoru. Yoga, seramik, kedi annesi.",
-            Gender.Male, 28, 42, true);
+            Gender.Male, 28, 42, true,
+            WorkSchedule.Mixed, NightShiftLoad.Light, MandatoryServiceStatus.InProgress,
+            RelocationOpenness.Open, CareerStage.Resident,
+            (PromptKey.CantTellPatients, "Çizdiğiniz resim kalbimi eritiyor, buzdolabıma asıyorum."),
+            (PromptKey.IncompatibleSpecialty, "Nöbet gecesi 'ben yorgunum' diyen herkes."));
         var mert = MakeDoctor("mert@medmatch.dev", "demo1234", "Mert", Profession.Physician, Gender.Male,
             new DateOnly(1988, 6, 15), "Ankara", "Ortopedi. Koşu, doğa kampı, fotoğraf.",
-            Gender.Female, 25, 40, true);
+            Gender.Female, 25, 40, true,
+            WorkSchedule.Shifts, NightShiftLoad.Heavy, MandatoryServiceStatus.Pending,
+            RelocationOpenness.Depends, CareerStage.Resident,
+            (PromptKey.NightShiftSurvival, "Enerji barı, sağlam bir playlist ve koridorda yürüyüş."));
         var canan = MakeDoctor("canan@medmatch.dev", "demo1234", "Canan", Profession.Dentist, Gender.Female,
             new DateOnly(1995, 3, 30), "İzmir", "Ortodonti. Deniz, gitar, İtalyan mutfağı.",
-            Gender.Male, 29, 41, true);
+            Gender.Male, 29, 41, true,
+            WorkSchedule.Daytime, NightShiftLoad.None, MandatoryServiceStatus.Completed,
+            RelocationOpenness.Open, CareerStage.Specialist,
+            (PromptKey.FreeWeekend, "Deniz kenarında gitar, akşama makarna."),
+            (PromptKey.HowToLoseMe, "Ananasli pizzayı savunmak."));
         var deniz = MakeDoctor("deniz@medmatch.dev", "demo1234", "Deniz", Profession.Physician, Gender.Male,
             new DateOnly(1991, 9, 18), "Ankara", "Nöroloji. Satranç, caz, uzun yürüyüşler.",
-            Gender.Female, 26, 38, true);
+            Gender.Female, 26, 38, true,
+            WorkSchedule.Mixed, NightShiftLoad.Moderate, MandatoryServiceStatus.Completed,
+            RelocationOpenness.Depends, CareerStage.Academic,
+            (PromptKey.OffDutyDifferent, "Poliklinikte sakin, satranç tahtasında acımasızım."));
         var selin = MakeDoctor("selin@medmatch.dev", "demo1234", "Selin", Profession.Dentist, Gender.Female,
             new DateOnly(1997, 2, 7), "Ankara", "Diş hekimi. Pilates, resim, brunch avcısı.",
-            Gender.Male, 28, 40, true);
+            Gender.Male, 28, 40, true,
+            WorkSchedule.Daytime, NightShiftLoad.None, MandatoryServiceStatus.NotApplicable,
+            RelocationOpenness.Closed, CareerStage.GeneralPractitioner,
+            (PromptKey.FreeWeekend, "Brunch, ardından resim atölyesi, sonra yine brunch."));
         var burak = MakeDoctor("burak@medmatch.dev", "demo1234", "Burak", Profession.Physician, Gender.Male,
             new DateOnly(1989, 12, 1), "Bursa", "Göz hastalıkları. Tenis, seyahat, şarap.",
-            Gender.Female, 27, 42, true);
+            Gender.Female, 27, 42, true,
+            WorkSchedule.Mixed, NightShiftLoad.Light, MandatoryServiceStatus.Completed,
+            RelocationOpenness.Open, CareerStage.Specialist,
+            (PromptKey.IncompatibleSpecialty, "Tenis maçında hakemle tartışan herkes."),
+            (PromptKey.TusWinDay, "Şarap değil, önce çay; sonra kutlama."));
 
         // --- Kerem seni önceden beğenmiş: onu beğenince ANINDA eşleşme olacak ---
         AddSwipe(kerem.user.Id, meUser.Id, SwipeDecision.Like, now.AddHours(-3));
@@ -106,13 +138,18 @@ public sealed class DemoSeeder
 
     private (User user, DoctorProfile profile) MakeDoctor(
         string email, string password, string name, Profession prof, Gender gender,
-        DateOnly birth, string city, string bio, Gender interestedIn, int ageMin, int ageMax, bool verified)
+        DateOnly birth, string city, string bio, Gender interestedIn, int ageMin, int ageMax, bool verified,
+        WorkSchedule schedule, NightShiftLoad nights, MandatoryServiceStatus service,
+        RelocationOpenness relocation, CareerStage stage,
+        params (PromptKey key, string answer)[] prompts)
     {
         var user = User.Create(email, _hasher.Hash(password), _clock.Now);
         _pendingUsers.Add(user);
 
-        var profile = DoctorProfile.Create(user.Id, name, prof, gender, birth, city, interestedIn, new AgeRange(ageMin, ageMax));
+        var profile = DoctorProfile.Create(user.Id, name, prof, gender, birth, city, interestedIn, new AgeRange(ageMin, ageMax),
+            schedule, nights, service, relocation, stage);
         profile.UpdateBio(bio);
+        foreach (var (key, answer) in prompts) profile.AddPrompt(key, answer);
         profile.AddPhoto(Avatar(name), true);
         if (verified) profile.MarkVerified();
         _pendingProfiles.Add(profile);

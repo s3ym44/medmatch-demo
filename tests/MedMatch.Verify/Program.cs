@@ -40,7 +40,8 @@ Check.True("AgeRange geçerli", new AgeRange(28, 40) is { Min: 28, Max: 40 });
 
 // DoctorProfile: doğrulama + foto primary mantığı
 var prof = DoctorProfile.Create(Guid.NewGuid(), "Test", Profession.Physician, Gender.Female,
-    new DateOnly(1995, 1, 1), "Ankara", Gender.Male, new AgeRange(25, 40));
+    new DateOnly(1995, 1, 1), "Ankara", Gender.Male, new AgeRange(25, 40),
+    WorkSchedule.Shifts, NightShiftLoad.Moderate, MandatoryServiceStatus.Completed, RelocationOpenness.Open, CareerStage.Resident);
 Check.True("Profil başlangıçta Unverified", prof.VerificationStatus == VerificationStatus.Unverified);
 prof.MarkVerified();
 Check.True("MarkVerified -> Verified", prof.VerificationStatus == VerificationStatus.Verified);
@@ -49,6 +50,29 @@ Check.True("İlk foto otomatik primary", prof.Photos.Single().IsPrimary);
 prof.AddPhoto("b.svg", true);
 Check.True("Yeni primary eklenince eski primary düşer",
     prof.Photos.Count(p => p.IsPrimary) == 1 && prof.Photos.First(p => p.Url == "b.svg").IsPrimary);
+
+// Yeni takvim/coğrafya alanları
+Check.True("Profil yeni alanları saklar",
+    prof is { WorkSchedule: WorkSchedule.Shifts, NightShiftLoad: NightShiftLoad.Moderate,
+              MandatoryService: MandatoryServiceStatus.Completed, Relocation: RelocationOpenness.Open,
+              CareerStage: CareerStage.Resident });
+Check.Throws<DomainException>("Tanımsız enum değeri fırlatır", () => DoctorProfile.Create(Guid.NewGuid(), "T", Profession.Physician,
+    Gender.Female, new DateOnly(1995, 1, 1), "Ankara", Gender.Male, new AgeRange(25, 40),
+    (WorkSchedule)0, NightShiftLoad.None, MandatoryServiceStatus.Completed, RelocationOpenness.Open, CareerStage.Resident));
+
+// Prompt kuralları
+Check.True("Prompt başlangıçta boş", prof.Prompts.Count == 0);
+prof.AddPrompt(PromptKey.FreeWeekend, "  Dağa kaçarım.  ");
+Check.True("Prompt eklenir ve kırpılır", prof.Prompts.Single().Answer == "Dağa kaçarım.");
+Check.Throws<DomainException>("Aynı PromptKey iki kez eklenemez", () => prof.AddPrompt(PromptKey.FreeWeekend, "başka"));
+Check.Throws<DomainException>("Boş cevap fırlatır", () => prof.AddPrompt(PromptKey.TusWinDay, "   "));
+Check.Throws<DomainException>("201 karakter fırlatır", () => prof.AddPrompt(PromptKey.TusWinDay, new string('a', 201)));
+prof.AddPrompt(PromptKey.TusWinDay, new string('a', 200));
+Check.True("200 karakter kabul edilir", prof.Prompts.Count == 2);
+prof.AddPrompt(PromptKey.HowToLoseMe, "x");
+Check.Throws<DomainException>("4. prompt fırlatır", () => prof.AddPrompt(PromptKey.OffDutyDifferent, "y"));
+Check.True("Katalog tüm PromptKey'leri kapsar",
+    Enum.GetValues<PromptKey>().All(k => PromptCatalog.Texts.ContainsKey(k)));
 
 Console.WriteLine();
 Console.WriteLine("== Uçtan uca akış (in-memory, MediatR pipeline) ==");
@@ -75,8 +99,9 @@ async Task<bool> FailsWith(AppErrorType type, Func<Task> action)
 // iki kullanıcı kaydol + profil + doğrula
 var a = await sender.Send(new RegisterCommand(new RegisterRequest("a@x.dev", "parola1")));
 var b = await sender.Send(new RegisterCommand(new RegisterRequest("b@x.dev", "parola1")));
-await sender.Send(new CreateProfileCommand(a.UserId, new CreateProfileRequest("Ada", Profession.Physician, Gender.Female, new DateOnly(1994,1,1), "Ankara", null, Gender.Male, 25, 45)));
-await sender.Send(new CreateProfileCommand(b.UserId, new CreateProfileRequest("Bora", Profession.Dentist, Gender.Male, new DateOnly(1990,1,1), "Ankara", null, Gender.Female, 25, 45)));
+await sender.Send(new CreateProfileCommand(a.UserId, new CreateProfileRequest("Ada", Profession.Physician, Gender.Female, new DateOnly(1994,1,1), "Ankara", null, Gender.Male, 25, 45, WorkSchedule.Daytime, NightShiftLoad.None, MandatoryServiceStatus.Completed, RelocationOpenness.Open, CareerStage.Specialist,
+    [new PromptAnswerInput(PromptKey.FreeWeekend, "Dağ yürüyüşü.")])));
+await sender.Send(new CreateProfileCommand(b.UserId, new CreateProfileRequest("Bora", Profession.Dentist, Gender.Male, new DateOnly(1990,1,1), "Ankara", null, Gender.Female, 25, 45, WorkSchedule.Shifts, NightShiftLoad.Heavy, MandatoryServiceStatus.Pending, RelocationOpenness.Closed, CareerStage.Resident)));
 
 // doğrulama öncesi keşif engelli
 Check.True("Doğrulanmadan keşif engelli",
@@ -87,6 +112,12 @@ await sender.Send(new SubmitVerificationCommand(b.UserId, new SubmitVerification
 
 var cands = await sender.Send(new GetCandidatesQuery(a.UserId, 10));
 Check.True("Doğrulama sonrası Ada, Bora'yı görüyor", cands.Any(c => c.UserId == b.UserId));
+var boraCard = cands.Single(c => c.UserId == b.UserId);
+Check.True("Aday kartı yeni alanları taşır",
+    boraCard is { WorkSchedule: WorkSchedule.Shifts, NightShiftLoad: NightShiftLoad.Heavy, Relocation: RelocationOpenness.Closed, CareerStage: CareerStage.Resident });
+var adaProfile = await sender.Send(new GetMyProfileQuery(a.UserId));
+Check.True("ProfileDto prompt metnini katalogdan getirir",
+    adaProfile!.Prompts is [{ PromptKey: PromptKey.FreeWeekend, Answer: "Dağ yürüyüşü." } p0] && p0.PromptText == PromptCatalog.TextOf(PromptKey.FreeWeekend));
 
 // tek taraflı like -> eşleşme yok
 var r1 = await sender.Send(new SwipeCommand(a.UserId, new SwipeRequest(b.UserId, SwipeDecision.Like)));

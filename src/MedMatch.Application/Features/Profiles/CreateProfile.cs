@@ -22,8 +22,11 @@ internal sealed class CreateProfileHandler : IRequestHandler<CreateProfileComman
         var req = cmd.Request;
         var profile = DoctorProfile.Create(
             cmd.UserId, req.DisplayName, req.Profession, req.Gender, req.BirthDate,
-            req.City, req.InterestedIn, new AgeRange(req.AgeMin, req.AgeMax));
+            req.City, req.InterestedIn, new AgeRange(req.AgeMin, req.AgeMax),
+            req.WorkSchedule, req.NightShiftLoad, req.MandatoryService, req.Relocation, req.CareerStage);
         profile.UpdateBio(req.Bio);
+        foreach (var prompt in req.Prompts ?? [])
+            profile.AddPrompt(prompt.PromptKey, prompt.Answer);
 
         await _profiles.AddAsync(profile, ct);
         return profile.ToDto(_clock.Today);

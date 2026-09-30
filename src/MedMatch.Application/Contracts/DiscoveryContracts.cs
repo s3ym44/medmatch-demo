@@ -11,4 +11,10 @@ public sealed record CandidateDto(
     int Age,
     string City,
     string? Bio,
-    IReadOnlyList<PhotoDto> Photos);
+    WorkSchedule WorkSchedule,
+    NightShiftLoad NightShiftLoad,
+    MandatoryServiceStatus MandatoryService,
+    RelocationOpenness Relocation,
+    CareerStage CareerStage,
+    IReadOnlyList<PhotoDto> Photos,
+    IReadOnlyList<PromptDto> Prompts);

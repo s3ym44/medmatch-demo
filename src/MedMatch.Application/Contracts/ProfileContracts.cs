@@ -11,7 +11,19 @@ public sealed record CreateProfileRequest(
     string? Bio,
     Gender InterestedIn,
     int AgeMin,
-    int AgeMax);
+    int AgeMax,
+    WorkSchedule WorkSchedule,
+    NightShiftLoad NightShiftLoad,
+    MandatoryServiceStatus MandatoryService,
+    RelocationOpenness Relocation,
+    CareerStage CareerStage,
+    List<PromptAnswerInput>? Prompts = null);
+
+public sealed record PromptAnswerInput(PromptKey PromptKey, string Answer);
+
+public sealed record PromptDto(PromptKey PromptKey, string PromptText, string Answer);
+
+public sealed record PromptCatalogItemDto(PromptKey Key, string Text);
 
 public sealed record UpdatePreferencesRequest(Gender InterestedIn, int AgeMin, int AgeMax, string? Bio);
 
@@ -32,4 +44,10 @@ public sealed record ProfileDto(
     Gender InterestedIn,
     int AgeMin,
     int AgeMax,
-    IReadOnlyList<PhotoDto> Photos);
+    WorkSchedule WorkSchedule,
+    NightShiftLoad NightShiftLoad,
+    MandatoryServiceStatus MandatoryService,
+    RelocationOpenness Relocation,
+    CareerStage CareerStage,
+    IReadOnlyList<PhotoDto> Photos,
+    IReadOnlyList<PromptDto> Prompts);
