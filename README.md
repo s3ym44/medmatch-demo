@@ -15,12 +15,19 @@ mimarinin merkezinde bir soyutlamadır.
 
 ## Hızlı başlangıç
 
-İki terminal gerekir. Ön koşul: **.NET 8 SDK** ve **Node 18+**.
+İki terminal gerekir. Ön koşul: **.NET 8 SDK**, **Node 18+** ve **Docker**.
 
 **1) Backend**
 ```bash
+docker compose up -d
 dotnet run --project src/MedMatch.Api --urls http://127.0.0.1:5099
 ```
+
+API açılışta migration'ları uygular ve demo verisini yükler. Postgres host'ta **5433** portunda.
+Docker olmadan denemek için in-memory mod (Redis backplane kapalı):
+`Database__Provider=InMemory ConnectionStrings__Redis= dotnet run --project src/MedMatch.Api --urls http://127.0.0.1:5099`
+
+Birden fazla API örneği SignalR mesajlarını Redis backplane üzerinden paylaşır (`ConnectionStrings:Redis`; boşsa tek sunuculu).
 
 **2) Frontend**
 ```bash
@@ -56,7 +63,7 @@ src/
   MedMatch.Application      # Use-case'ler, arayüzler (repository/servis), DTO'lar
     Abstractions, Services, Contracts
   MedMatch.Infrastructure   # Arayüzlerin implementasyonu
-    Persistence (in-memory), Security (JWT/hash), Verification (mock), Seed
+    Persistence (EF Core + PostgreSQL; in-memory alternatif), Security (JWT/hash), Verification (mock), Seed
   MedMatch.Api              # Controller'lar, SignalR hub, auth, DI
 tests/
   MedMatch.Verify           # Bağımlılıksız doğrulama harness'i (18 test)
@@ -98,17 +105,15 @@ akışı (doğrulama kapısı, karşılıklı like → eşleşme, mesaj yetkisi)
 
 ## Bu demonun bilinçli sadeleştirmeleri
 
-Bu sürüm, kurulum gerektirmeden çalışsın diye şu üretim bileşenlerini soyutlama arkasında ikame eder:
+Bu sürüm şu üretim bileşenlerini soyutlama arkasında ikame eder (persistence EF Core + PostgreSQL'e taşındı, bkz. [docs/MIGRATION.md](docs/MIGRATION.md)):
 
 | Konu | Demo | Üretim yolu |
 |------|------|-------------|
-| Persistence | Süreç içi (in-memory) repository | Aynı `I*Repository` arayüzleri arkasında **EF Core + PostgreSQL** |
 | Meslek doğrulama | `MockVerificationService` | `IVerificationService` arkasında gerçek e-Devlet/e-posta/sicil |
-| Auth | Elle HS256 JWT | `Microsoft.AspNetCore.Authentication.JwtBearer` + döndürülen anahtar |
+| Auth | JwtBearer, tek HS256 anahtar (`Jwt__Secret`; Development'ta `appsettings.Development.json`) | Döndürülen anahtar / secret store |
 | Doğrulama testi | Console harness | xUnit + FluentAssertions |
 
 Repository ve servis arayüzleri sabit olduğu için bu geçişler üst katmanları etkilemez.
 
-> **Not:** Bu demo, dış NuGet paketlerine erişimi olmayan bir ortamda üretildi; bu yüzden yalnızca
-> .NET 8 paylaşımlı framework'ü (EF Core/MediatR/JwtBearer paketleri olmadan) kullanır. Senin
-> makinende NuGet açık olduğu için bu bileşenleri yukarıdaki tabloya göre kolayca ekleyebilirsin.
+> **Not:** İlk demo dış NuGet paketleri olmadan üretilmişti. Bu bileşenlerin üretim karşılıklarına
+> adım adım geçiş [docs/MIGRATION.md](docs/MIGRATION.md) içinde; persistence geçişi tamamlandı.

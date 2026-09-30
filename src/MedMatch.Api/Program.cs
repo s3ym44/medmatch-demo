@@ -1,10 +1,9 @@
 using System.Text.Json.Serialization;
-using MedMatch.Api.Auth;
 using MedMatch.Api.Common;
 using MedMatch.Api.Hubs;
 using MedMatch.Infrastructure;
-using MedMatch.Infrastructure.Seed;
-using Microsoft.AspNetCore.Authentication;
+using MedMatch.Infrastructure.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,13 +11,40 @@ builder.Services
     .AddControllers()
     .AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-builder.Services.AddSignalR();
+// SignalR. Birden fazla API örneğinde mesajlar diğer sunuculara bağlı istemcilere de ulaşsın diye
+// Redis backplane; ConnectionStrings:Redis boşsa tek sunuculu (süreç içi) çalışır.
+var signalR = builder.Services.AddSignalR();
+var redis = builder.Configuration.GetConnectionString("Redis");
+if (!string.IsNullOrWhiteSpace(redis))
+    signalR.AddStackExchangeRedis(redis, o =>
+    {
+        o.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("medmatch");
+        o.Configuration.AbortOnConnectFail = false; // Redis geri gelince yeniden başlatmadan toparlan
+    });
+
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// Bearer token doğrulaması (JwtBearer paketi yerine özel handler)
+// Bearer token doğrulaması (JwtBearer). "sub" claim'i NameIdentifier'a eşlenir (MapInboundClaims):
+// UserContext ve SignalR'ın kullanıcı yönlendirmesi (Clients.User) bunu kullanır.
+var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOptions();
+var tokenValidation = jwt.ValidationParameters(); // lambda dışında: secret eksik/kısaysa açılışta düşer
 builder.Services
-    .AddAuthentication(TokenAuthenticationHandler.SchemeName)
-    .AddScheme<AuthenticationSchemeOptions, TokenAuthenticationHandler>(TokenAuthenticationHandler.SchemeName, null);
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(o =>
+    {
+        o.TokenValidationParameters = tokenValidation;
+        // SignalR websocket handshake'i header gönderemez: token'ı ?access_token= ile al
+        o.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = ctx =>
+            {
+                var token = ctx.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && ctx.HttpContext.Request.Path.StartsWithSegments("/hubs"))
+                    ctx.Token = token;
+                return Task.CompletedTask;
+            }
+        };
+    });
 builder.Services.AddAuthorization();
 
 const string CorsPolicy = "spa";
@@ -36,11 +62,8 @@ builder.Services.AddCors(o => o.AddPolicy(CorsPolicy, p => p
 
 var app = builder.Build();
 
-// demo verisini yükle
-using (var scope = app.Services.CreateScope())
-{
-    scope.ServiceProvider.GetRequiredService<DemoSeeder>().Seed();
-}
+// veritabanını hazırla (Postgres: migrate) ve demo verisini yükle
+await app.Services.InitializeDatabaseAsync(builder.Configuration);
 
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseCors(CorsPolicy);
