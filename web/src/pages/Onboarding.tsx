@@ -1,7 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError, type CreateProfileInput } from '../api/client';
-import type { Gender, Profession } from '../api/types';
+import type {
+  CareerStage, Gender, MandatoryServiceStatus, NightShiftLoad, Profession, RelocationOpenness, WorkSchedule,
+} from '../api/types';
+import {
+  careerStageLabel, mandatoryServiceLabel, nightShiftLoadLabel, relocationLabel, workScheduleLabel,
+} from '../api/types';
+import PromptPicker from '../components/PromptPicker';
+
+function options<T extends string>(labels: Record<T, string>) {
+  return (Object.keys(labels) as T[]).map(k => <option key={k} value={k}>{labels[k]}</option>);
+}
 
 export default function Onboarding() {
   const nav = useNavigate();
@@ -9,6 +19,8 @@ export default function Onboarding() {
     displayName: '', profession: 'Physician', gender: 'Female',
     birthDate: '1995-01-01', city: 'Ankara', bio: '',
     interestedIn: 'Male', ageMin: 25, ageMax: 40,
+    workSchedule: 'Daytime', nightShiftLoad: 'None', mandatoryService: 'Completed',
+    relocation: 'Open', careerStage: 'Specialist', prompts: [],
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,10 +71,44 @@ export default function Onboarding() {
             <input value={form.city} onChange={e => set('city', e.target.value)} required />
           </label>
         </div>
-        <label>Hakkında
-          <textarea value={form.bio ?? ''} onChange={e => set('bio', e.target.value)} rows={3}
-            placeholder="Kısaca kendinden bahset" />
+        <label>Kısa motto (isteğe bağlı)
+          <input value={form.bio ?? ''} onChange={e => set('bio', e.target.value)} maxLength={100}
+            placeholder="Tek satırda kendini anlat" />
         </label>
+        <fieldset>
+          <legend>Takvim ve coğrafya</legend>
+          <div className="row">
+            <label>Kariyer aşaması
+              <select value={form.careerStage} onChange={e => set('careerStage', e.target.value as CareerStage)}>
+                {options(careerStageLabel)}
+              </select>
+            </label>
+            <label>Çalışma düzeni
+              <select value={form.workSchedule} onChange={e => set('workSchedule', e.target.value as WorkSchedule)}>
+                {options(workScheduleLabel)}
+              </select>
+            </label>
+          </div>
+          <div className="row">
+            <label>Nöbet yoğunluğu (aylık)
+              <select value={form.nightShiftLoad} onChange={e => set('nightShiftLoad', e.target.value as NightShiftLoad)}>
+                {options(nightShiftLoadLabel)}
+              </select>
+            </label>
+            <label>Mecburi hizmet
+              <select value={form.mandatoryService}
+                onChange={e => set('mandatoryService', e.target.value as MandatoryServiceStatus)}>
+                {options(mandatoryServiceLabel)}
+              </select>
+            </label>
+          </div>
+          <label>Tayin / şehir değiştirme
+            <select value={form.relocation} onChange={e => set('relocation', e.target.value as RelocationOpenness)}>
+              {options(relocationLabel)}
+            </select>
+          </label>
+        </fieldset>
+        <PromptPicker value={form.prompts} onChange={v => set('prompts', v)} />
         <fieldset>
           <legend>Tercihler</legend>
           <div className="row">

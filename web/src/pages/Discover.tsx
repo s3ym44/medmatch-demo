@@ -4,6 +4,7 @@ import { api, ApiError } from '../api/client';
 import type { Candidate, SwipeDecision } from '../api/types';
 import { professionLabel } from '../api/types';
 import Avatar from '../components/Avatar';
+import { ProfileBadges, PromptCards } from '../components/ProfileHighlights';
 
 export default function Discover() {
   const [cards, setCards] = useState<Candidate[]>([]);
@@ -69,7 +70,9 @@ export default function Discover() {
                 <span className="chip">{professionLabel[top.profession]}</span>
                 <span className="chip">{top.city}</span>
               </div>
+              <ProfileBadges profile={top} />
               {top.bio && <p className="bio">{top.bio}</p>}
+              <PromptCards prompts={top.prompts} />
             </div>
           </article>
 

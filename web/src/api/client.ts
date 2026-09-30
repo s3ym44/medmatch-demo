@@ -1,6 +1,7 @@
 import type {
   AuthResponse, Profile, Candidate, SwipeResult, Match, Message,
   VerificationResult, VerificationMethod, Gender, Profession, SwipeDecision,
+  ScheduleFields, PromptAnswerInput, PromptCatalogItem,
 } from './types';
 
 const TOKEN_KEY = 'medmatch.token';
@@ -41,10 +42,11 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   return text ? (JSON.parse(text) as T) : (undefined as T);
 }
 
-export interface CreateProfileInput {
+export interface CreateProfileInput extends ScheduleFields {
   displayName: string; profession: Profession; gender: Gender;
   birthDate: string; city: string; bio?: string;
   interestedIn: Gender; ageMin: number; ageMax: number;
+  prompts: PromptAnswerInput[];
 }
 
 export const api = {
@@ -57,6 +59,8 @@ export const api = {
 
   myProfile: () => req<Profile>('GET', '/api/profiles/me'),
   createProfile: (input: CreateProfileInput) => req<Profile>('POST', '/api/profiles', input),
+
+  promptCatalog: () => req<PromptCatalogItem[]>('GET', '/api/prompts'),
 
   submitVerification: (method: VerificationMethod, documentRef?: string) =>
     req<VerificationResult>('POST', '/api/verification/submit', { method, documentRef }),
