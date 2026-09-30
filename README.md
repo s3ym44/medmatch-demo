@@ -60,8 +60,8 @@ Demo hesabı: `demo@medmatch.dev` / `demo1234` (doğrulanmış). Diğer tüm see
 src/
   MedMatch.Domain          # Saf iş kuralları — dış bağımlılık yok
     Users, Profiles, Verification, Matching, Messaging
-  MedMatch.Application      # Use-case'ler, arayüzler (repository/servis), DTO'lar
-    Abstractions, Services, Contracts
+  MedMatch.Application      # Use-case'ler (MediatR command/query + handler), arayüzler, DTO'lar
+    Abstractions, Features, Behaviors (validation, transaction), Contracts
   MedMatch.Infrastructure   # Arayüzlerin implementasyonu
     Persistence (EF Core + PostgreSQL; in-memory alternatif), Security (JWT/hash), Verification (mock), Seed
   MedMatch.Api              # Controller'lar, SignalR hub, auth, DI
@@ -86,7 +86,7 @@ entity'si bilinçli olarak sağlayıcıya özgü hiçbir alan tutmaz; yalnızca 
 
 ### Keşif ve gizlilik
 
-`DiscoveryService` tüm dışlama kurallarını tek yerde toplar: kendini, daha önce oy verdiklerini,
+`GetCandidatesHandler` tüm dışlama kurallarını tek yerde toplar: kendini, daha önce oy verdiklerini,
 **doğrulanmamışları**, tercih dışı cinsiyet/yaşı eler. İleride "aynı kurumdaki meslektaşı / hastayı
 görme" gibi kurallar için `PrivacyFilter` kancası bırakılmıştır (demo'da pasif).
 

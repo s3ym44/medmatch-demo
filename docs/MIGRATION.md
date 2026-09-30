@@ -472,6 +472,11 @@ logging, transaction pipeline) merkezileşsin istiyorsan ekle.
 
 Bu, dosya sayısını artıran bir refactor; persistence geçişi oturduktan sonra ayrı bir dalda yap.
 
+> **Uygulandı** (`feat/mediatr` dalı): MediatR **12.5.0** (son Apache-2.0 sürüm; 13+ ticari lisanslı).
+> Her use-case `Application/Features/<Alan>/` altında tek dosya: command/query + (varsa) validator + handler.
+> Pipeline sırası: `ValidationBehavior` (FluentValidation, ilk hata → 400) → `TransactionBehavior`
+> (yalnızca `ICommand`; `IUnitOfWork` ile EF transaction'ı, InMemory'de doğrudan çalışır).
+
 ---
 
 ## Sıra özeti

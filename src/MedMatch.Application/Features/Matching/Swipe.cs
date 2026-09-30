@@ -1,35 +1,46 @@
+using FluentValidation;
 using MedMatch.Application.Abstractions;
 using MedMatch.Application.Common;
 using MedMatch.Application.Contracts;
 using MedMatch.Domain.Enums;
 using MedMatch.Domain.Matching;
+using MediatR;
 
-namespace MedMatch.Application.Services;
+namespace MedMatch.Application.Features.Matching;
 
-/// <summary>Swipe kaydeder; karşılıklı Like durumunda eşleşme üretir.</summary>
-public sealed class MatchingService
+/// <summary>Swipe kaydeder; karşılıklı Like durumunda eşleşme üretir. Swipe ve eşleşme tek transaction'da.</summary>
+public sealed record SwipeCommand(Guid UserId, SwipeRequest Request) : ICommand<SwipeResultDto>;
+
+internal sealed class SwipeValidator : AbstractValidator<SwipeCommand>
+{
+    public SwipeValidator()
+    {
+        RuleFor(x => x.Request.TargetUserId)
+            .NotEqual(x => x.UserId).WithMessage("Kendinize oy veremezsiniz.");
+    }
+}
+
+internal sealed class SwipeHandler : IRequestHandler<SwipeCommand, SwipeResultDto>
 {
     private readonly ISwipeRepository _swipes;
     private readonly IMatchRepository _matches;
     private readonly IProfileRepository _profiles;
     private readonly IClock _clock;
 
-    public MatchingService(ISwipeRepository swipes, IMatchRepository matches, IProfileRepository profiles, IClock clock)
+    public SwipeHandler(ISwipeRepository swipes, IMatchRepository matches, IProfileRepository profiles, IClock clock)
     {
         _swipes = swipes; _matches = matches; _profiles = profiles; _clock = clock;
     }
 
-    public async Task<SwipeResultDto> SwipeAsync(Guid userId, SwipeRequest req, CancellationToken ct = default)
+    public async Task<SwipeResultDto> Handle(SwipeCommand cmd, CancellationToken ct)
     {
-        if (req.TargetUserId == userId)
-            throw AppException.Validation("Kendinize oy veremezsiniz.");
+        var (userId, req) = (cmd.UserId, cmd.Request);
 
-        var me = await _profiles.GetByUserIdAsync(userId, ct)
-            ?? throw AppException.NotFound("Önce profil oluşturmalısınız.");
+        var me = await _profiles.RequireByUserIdAsync(userId, ct);
         if (me.VerificationStatus != VerificationStatus.Verified)
             throw AppException.Forbidden("Oy vermek için profiliniz doğrulanmış olmalı.");
 
-        var target = await _profiles.GetByUserIdAsync(req.TargetUserId, ct)
+        _ = await _profiles.GetByUserIdAsync(req.TargetUserId, ct)
             ?? throw AppException.NotFound("Hedef kullanıcı bulunamadı.");
 
         if (await _swipes.ExistsAsync(userId, req.TargetUserId, ct))

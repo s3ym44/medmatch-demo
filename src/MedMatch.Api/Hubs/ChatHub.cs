@@ -1,5 +1,6 @@
 using MedMatch.Api.Common;
-using MedMatch.Application.Services;
+using MedMatch.Application.Features.Chat;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
@@ -12,15 +13,15 @@ namespace MedMatch.Api.Hubs;
 [Authorize]
 public sealed class ChatHub : Hub
 {
-    private readonly ChatService _chat;
-    public ChatHub(ChatService chat) => _chat = chat;
+    private readonly ISender _sender;
+    public ChatHub(ISender sender) => _sender = sender;
 
     public static string MatchGroup(Guid matchId) => $"match:{matchId}";
 
     public async Task JoinMatch(Guid matchId)
     {
         var userId = Context.User!.GetUserId();
-        if (!await _chat.IsMemberAsync(userId, matchId, Context.ConnectionAborted))
+        if (!await _sender.Send(new IsMatchMemberQuery(userId, matchId), Context.ConnectionAborted))
             throw new HubException("Bu sohbete erişim yetkiniz yok.");
 
         await Groups.AddToGroupAsync(Context.ConnectionId, MatchGroup(matchId));

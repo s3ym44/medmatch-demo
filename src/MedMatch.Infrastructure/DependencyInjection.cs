@@ -1,5 +1,4 @@
 using MedMatch.Application.Abstractions;
-using MedMatch.Application.Services;
 using MedMatch.Infrastructure.Persistence;
 using MedMatch.Infrastructure.Persistence.Repositories;
 using MedMatch.Infrastructure.Security;
@@ -39,6 +38,7 @@ public static class DependencyInjection
         if (UseInMemoryDatabase(configuration))
         {
             services.AddSingleton<InMemoryStore>(); // süreç içi tek örnek
+            services.AddScoped<IUnitOfWork, InMemoryUnitOfWork>();
             services.AddScoped<IUserRepository, UserRepository>();
             services.AddScoped<IProfileRepository, ProfileRepository>();
             services.AddScoped<IVerificationRepository, VerificationRepository>();
@@ -51,6 +51,7 @@ public static class DependencyInjection
             var conn = configuration.GetConnectionString("Postgres")
                 ?? throw new InvalidOperationException("ConnectionStrings:Postgres tanımlı değil.");
             services.AddDbContext<AppDbContext>(o => o.UseNpgsql(conn));
+            services.AddScoped<IUnitOfWork, EfUnitOfWork>();
             services.AddScoped<IUserRepository, EfUserRepository>();
             services.AddScoped<IProfileRepository, EfProfileRepository>();
             services.AddScoped<IVerificationRepository, EfVerificationRepository>();
@@ -61,14 +62,6 @@ public static class DependencyInjection
 
         // Demo verisi (repository arayüzleri üzerinden; iki modda da çalışır)
         services.AddScoped<DemoSeeder>();
-
-        // Application servisleri
-        services.AddScoped<AuthService>();
-        services.AddScoped<ProfileService>();
-        services.AddScoped<VerificationAppService>();
-        services.AddScoped<DiscoveryService>();
-        services.AddScoped<MatchingService>();
-        services.AddScoped<ChatService>();
 
         return services;
     }
